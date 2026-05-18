@@ -574,6 +574,8 @@ const RESULTS: ResultProfile[] = [
 
 const QUESTIONS_PER_RUN = 10;
 const MAX_SCORE = QUESTIONS_PER_RUN * 30;
+const PRESSURE_HEAVY_IDS = new Set([18, 22, 24, 28, 32, 34, 38, 46, 47, 50]);
+const PRESSURE_MEDIUM_IDS = new Set([12, 16, 21, 25, 29, 35, 40, 42, 44, 49]);
 
 function getResultProfile(total: number): ResultProfile {
   const t = Math.max(0, Math.min(MAX_SCORE, total));
@@ -584,8 +586,75 @@ function getResultProfile(total: number): ResultProfile {
   return RESULTS[4];
 }
 
-function buildShareText(total: number, profile: ResultProfile): string {
-  return `量産型コンサル汚染度診断：${profile.title}\n汚染度 ${total}/${MAX_SCORE}pt・レベル${profile.level}/5\n${profile.tagline}`;
+type AxisProfile = {
+  title: string;
+  label: string;
+  body: string;
+};
+
+function getPressureWeight(questionId: number): number {
+  if (PRESSURE_HEAVY_IDS.has(questionId)) return 30;
+  if (PRESSURE_MEDIUM_IDS.has(questionId)) return 20;
+  return 10;
+}
+
+function getPressureContribution(questionId: number, points: number): number {
+  return Math.round((points * getPressureWeight(questionId)) / 30);
+}
+
+function getPressureMax(questionSet: Question[]): number {
+  return questionSet.reduce((sum, q) => sum + getPressureWeight(q.id), 0);
+}
+
+function toNormalizedScore(raw: number, max: number): number {
+  if (max <= 0) return 0;
+  return Math.round((raw / max) * MAX_SCORE);
+}
+
+function getAxisProfile(consultScore: number, pressureScore: number): AxisProfile {
+  const highConsult = consultScore >= 150;
+  const highPressure = pressureScore >= 150;
+
+  if (!highConsult && !highPressure) {
+    return {
+      title: "自然体コミュニケーター",
+      label: "低構文化 × 低圧",
+      body: "構造化も圧も控えめ。会話は人間味があり、相手に逃げ道を残せるタイプです。資料より雑談で強い可能性があります。",
+    };
+  }
+
+  if (highConsult && !highPressure) {
+    return {
+      title: "やさしい構造化職人",
+      label: "高構文化 × 低圧",
+      body: "論点整理や図解は得意ですが、相手を詰める感じは弱め。コンサル語は出るけれど、比較的やさしい運用です。",
+    };
+  }
+
+  if (!highConsult && highPressure) {
+    return {
+      title: "現場圧マネージャー",
+      label: "低構文化 × 高圧",
+      body: "フレームワーク臭はそこまで強くない一方で、確認・詰め・責任所在への感度が高め。正論の速度を少し落とすと安全です。",
+    };
+  }
+
+  return {
+    title: "高圧スライド司令塔",
+    label: "高構文化 × 高圧",
+    body: "構造化・論点整理・責任所在の確認が全部強め。仕事は進みますが、相手から見ると『詰め会』に見えることがあります。",
+  };
+}
+
+function buildShareText(
+  consultScore: number,
+  pressureScore: number,
+  profile: ResultProfile,
+  axisProfile: AxisProfile,
+): string {
+  return `量産型コンサル汚染度診断：${profile.title}
+構文化度 ${consultScore}/${MAX_SCORE}pt・圧注意度 ${pressureScore}/${MAX_SCORE}pt
+二軸タイプ：${axisProfile.title}（${axisProfile.label}）`;
 }
 
 function xIntentUrl(text: string, pageUrl: string): string {
@@ -599,10 +668,17 @@ function lineShareUrl(text: string, pageUrl: string): string {
   return `https://line.me/R/msg/text/?${encodeURIComponent(body)}`;
 }
 
+function shuffle<T>(items: T[]): T[] {
+  return [...items].sort(() => Math.random() - 0.5);
+}
+
 function selectQuestions(): Question[] {
-  return [...QUESTIONS]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, QUESTIONS_PER_RUN);
+  const pressureQuestions = QUESTIONS.filter((q) => getPressureWeight(q.id) >= 20);
+  const otherQuestions = QUESTIONS.filter((q) => getPressureWeight(q.id) < 20);
+  return [
+    ...shuffle(pressureQuestions).slice(0, 4),
+    ...shuffle(otherQuestions).slice(0, QUESTIONS_PER_RUN - 4),
+  ].sort(() => Math.random() - 0.5);
 }
 
 type Phase = "intro" | "quiz" | "result";
@@ -612,6 +688,7 @@ export function Quiz() {
   const [questionSet, setQuestionSet] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [pressureRawScore, setPressureRawScore] = useState(0);
   const [shareHref, setShareHref] = useState("#");
   const [lineHref, setLineHref] = useState("#");
   const [shareText, setShareText] = useState("");
@@ -624,21 +701,33 @@ export function Quiz() {
   );
 
   const result = phase === "result" ? getResultProfile(score) : null;
+  const pressureScore = useMemo(
+    () => toNormalizedScore(pressureRawScore, getPressureMax(questionSet)),
+    [pressureRawScore, questionSet],
+  );
+  const axisProfile = useMemo(
+    () =>
+      phase === "result" && result
+        ? getAxisProfile(score, pressureScore)
+        : null,
+    [phase, pressureScore, result, score],
+  );
 
   useEffect(() => {
-    if (!result) return;
+    if (!result || !axisProfile) return;
     const pageUrl = getSiteUrl() || window.location.href;
-    const text = buildShareText(score, result);
+    const text = buildShareText(score, pressureScore, result, axisProfile);
     setShareText(pageUrl ? `${text}\n${pageUrl}` : text);
     setShareHref(xIntentUrl(text, pageUrl));
     setLineHref(lineShareUrl(text, pageUrl));
-  }, [result, score]);
+  }, [axisProfile, pressureScore, result, score]);
 
   function start() {
     setQuestionSet(selectQuestions());
     setPhase("quiz");
     setIndex(0);
     setScore(0);
+    setPressureRawScore(0);
     setShareHref("#");
     setLineHref("#");
     setShareText("");
@@ -647,12 +736,16 @@ export function Quiz() {
 
   function pick(points: number) {
     const nextScore = score + points;
+    const nextPressureScore =
+      pressureRawScore + getPressureContribution(current.id, points);
     if (index >= QUESTIONS_PER_RUN - 1) {
       setScore(nextScore);
+      setPressureRawScore(nextPressureScore);
       setPhase("result");
       return;
     }
     setScore(nextScore);
+    setPressureRawScore(nextPressureScore);
     setIndex((i) => i + 1);
   }
 
@@ -661,6 +754,7 @@ export function Quiz() {
     setPhase("quiz");
     setIndex(0);
     setScore(0);
+    setPressureRawScore(0);
     setShareHref("#");
     setLineHref("#");
     setShareText("");
@@ -684,7 +778,7 @@ export function Quiz() {
           <span className="block text-sky-300">汚染度診断</span>
         </h1>
         <p className="mt-3 text-pretty text-sm leading-relaxed text-slate-300 sm:text-base">
-          50問の設問バンクから毎回ランダムに10問出題。点数は「汚染度」です（高いほど量産型の香り）。
+          50問の設問バンクから毎回ランダムに10問出題。結果は「構文化度」と「圧・ハラスメント注意度」の二軸で判定します。
           <span className="text-slate-400"> ※医療診断ではありません。</span>
         </p>
       </header>
@@ -702,7 +796,7 @@ export function Quiz() {
         <section className="animate-slide-up flex flex-1 flex-col justify-center">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset] backdrop-blur">
             <p className="text-sm leading-relaxed text-slate-200">
-              準備はいいですか？ 最後に5段階の現在レベル、X・LINE共有、コピペ用テキストが出ます。
+              準備はいいですか？ 最後に5段階レベルと、二軸マップ上の現在地が出ます。
             </p>
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
               <li className="flex gap-2">
@@ -754,7 +848,7 @@ export function Quiz() {
         </section>
       )}
 
-      {phase === "result" && result && (
+      {phase === "result" && result && axisProfile && (
         <section className="animate-slide-up flex flex-1 flex-col">
           <div
             className={`rounded-2xl border border-white/10 bg-gradient-to-br ${result.accent} p-[1px]`}
@@ -771,13 +865,29 @@ export function Quiz() {
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-center">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  pollution score
+                  two-axis score
                 </p>
-                <p className="mt-2 text-5xl font-black leading-none text-white sm:text-6xl">
-                  {score}
-                  <span className="ml-1 text-lg font-bold text-slate-400">pt</span>
-                </p>
-                <p className="mt-2 text-xs text-slate-400">最大 {MAX_SCORE}pt</p>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-sky-300/20 bg-sky-400/10 p-4">
+                    <p className="text-[11px] font-semibold text-sky-200">
+                      構文化度
+                    </p>
+                    <p className="mt-1 text-3xl font-black text-white">
+                      {score}
+                      <span className="ml-1 text-sm text-slate-400">pt</span>
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-rose-300/20 bg-rose-400/10 p-4">
+                    <p className="text-[11px] font-semibold text-rose-200">
+                      圧注意度
+                    </p>
+                    <p className="mt-1 text-3xl font-black text-white">
+                      {pressureScore}
+                      <span className="ml-1 text-sm text-slate-400">pt</span>
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-slate-400">各軸 最大 {MAX_SCORE}pt</p>
               </div>
 
               <h2 className="mt-4 text-balance text-xl font-bold sm:text-2xl">
@@ -791,8 +901,48 @@ export function Quiz() {
               </p>
 
               <div className="mt-6 rounded-xl border border-white/10 bg-black/20 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-slate-300">
+                    二軸タイプ：{axisProfile.title}
+                  </p>
+                  <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-slate-300">
+                    {axisProfile.label}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                  {axisProfile.body}
+                </p>
+                <div className="relative mt-4 aspect-square rounded-2xl border border-white/10 bg-slate-950/70 p-3">
+                  <div className="absolute inset-x-3 top-1/2 border-t border-white/10" />
+                  <div className="absolute inset-y-3 left-1/2 border-l border-white/10" />
+                  <div className="absolute left-3 top-3 text-[10px] text-rose-200">
+                    圧高
+                  </div>
+                  <div className="absolute bottom-3 right-3 text-[10px] text-sky-200">
+                    構文化高
+                  </div>
+                  <div className="absolute bottom-3 left-3 text-[10px] text-slate-500">
+                    自然体
+                  </div>
+                  <div
+                    className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-sky-300 to-rose-300 shadow-lg shadow-sky-500/30 ring-4 ring-white/15"
+                    style={{
+                      left: `${Math.min(94, Math.max(6, (score / MAX_SCORE) * 100))}%`,
+                      top: `${Math.min(
+                        94,
+                        Math.max(6, 100 - (pressureScore / MAX_SCORE) * 100),
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+                  横軸は構造化・コンサル語・資料脳の強さ、縦軸は詰め・責任所在・確認圧が強く出る回答傾向です。
+                </p>
+              </div>
+
+              <div className="mt-6 rounded-xl border border-white/10 bg-black/20 p-4">
                 <p className="text-xs font-semibold text-slate-300">
-                  全体の中での現在地
+                  構文化度のレベル
                 </p>
                 <div className="mt-3 grid gap-2">
                   {RESULTS.map((r) => (
