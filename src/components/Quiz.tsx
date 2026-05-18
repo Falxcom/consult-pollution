@@ -574,6 +574,7 @@ const RESULTS: ResultProfile[] = [
 
 const QUESTIONS_PER_RUN = 10;
 const MAX_SCORE = QUESTIONS_PER_RUN * 30;
+const MAX_TOTAL_SCORE = MAX_SCORE * 2;
 const PRESSURE_HEAVY_IDS = new Set([18, 22, 24, 28, 32, 34, 38, 46, 47, 50]);
 const PRESSURE_MEDIUM_IDS = new Set([12, 16, 21, 25, 29, 35, 40, 42, 44, 49]);
 
@@ -589,6 +590,11 @@ function getResultProfile(total: number): ResultProfile {
 type AxisProfile = {
   title: string;
   label: string;
+  body: string;
+};
+
+type NextAction = {
+  title: "事業会社に転職" | "ハラスメント退職" | "自分探しの旅" | "来期はプロモーション";
   body: string;
 };
 
@@ -611,50 +617,82 @@ function toNormalizedScore(raw: number, max: number): number {
   return Math.round((raw / max) * MAX_SCORE);
 }
 
-function getAxisProfile(consultScore: number, pressureScore: number): AxisProfile {
-  const highConsult = consultScore >= 150;
+function getAxisProfile(pollutionScore: number, pressureScore: number): AxisProfile {
+  const highPollution = pollutionScore >= 150;
   const highPressure = pressureScore >= 150;
 
-  if (!highConsult && !highPressure) {
+  if (!highPollution && !highPressure) {
     return {
       title: "自然体コミュニケーター",
-      label: "低構文化 × 低圧",
+      label: "低汚染 × 低高圧",
       body: "構造化も圧も控えめ。会話は人間味があり、相手に逃げ道を残せるタイプです。資料より雑談で強い可能性があります。",
     };
   }
 
-  if (highConsult && !highPressure) {
+  if (highPollution && !highPressure) {
     return {
       title: "やさしい構造化職人",
-      label: "高構文化 × 低圧",
+      label: "高汚染 × 低高圧",
       body: "論点整理や図解は得意ですが、相手を詰める感じは弱め。コンサル語は出るけれど、比較的やさしい運用です。",
     };
   }
 
-  if (!highConsult && highPressure) {
+  if (!highPollution && highPressure) {
     return {
       title: "現場圧マネージャー",
-      label: "低構文化 × 高圧",
+      label: "低汚染 × 高高圧",
       body: "フレームワーク臭はそこまで強くない一方で、確認・詰め・責任所在への感度が高め。正論の速度を少し落とすと安全です。",
     };
   }
 
   return {
     title: "高圧スライド司令塔",
-    label: "高構文化 × 高圧",
+    label: "高汚染 × 高高圧",
     body: "構造化・論点整理・責任所在の確認が全部強め。仕事は進みますが、相手から見ると『詰め会』に見えることがあります。",
   };
 }
 
+function getNextAction(pollutionScore: number, pressureScore: number): NextAction {
+  const highPollution = pollutionScore >= 150;
+  const highPressure = pressureScore >= 150;
+
+  if (!highPollution && !highPressure) {
+    return {
+      title: "自分探しの旅",
+      body: "まだ染まりきっていません。Excelを閉じて、少しだけ予定のない週末を取り戻しましょう。",
+    };
+  }
+
+  if (highPollution && !highPressure) {
+    return {
+      title: "事業会社に転職",
+      body: "構造化力は武器。ただし詰めは弱めなので、事業会社の企画・BizOps・PdM周辺で穏やかに活きる可能性があります。",
+    };
+  }
+
+  if (!highPollution && highPressure) {
+    return {
+      title: "ハラスメント退職",
+      body: "構文より圧が先に出るタイプ。次の1on1では正論を半分にして、相手の逃げ道を先に置きましょう。",
+    };
+  }
+
+  return {
+    title: "来期はプロモーション",
+    body: "構造化も推進圧も強め。成果は出そうですが、周囲のHPも削りがちです。昇進の前に優しさのKPIも置きましょう。",
+  };
+}
+
 function buildShareText(
-  consultScore: number,
-  pressureScore: number,
+  totalScore: number,
   profile: ResultProfile,
   axisProfile: AxisProfile,
+  nextAction: NextAction,
 ): string {
   return `量産型コンサル汚染度診断：${profile.title}
-構文化度 ${consultScore}/${MAX_SCORE}pt・圧注意度 ${pressureScore}/${MAX_SCORE}pt
-二軸タイプ：${axisProfile.title}（${axisProfile.label}）`;
+総合スコア ${totalScore}/${MAX_TOTAL_SCORE}pt
+二軸タイプ：${axisProfile.title}（${axisProfile.label}）
+ネクストアクション：${nextAction.title}`;
 }
 
 function xIntentUrl(text: string, pageUrl: string): string {
@@ -700,11 +738,13 @@ export function Quiz() {
     [index, phase],
   );
 
-  const result = phase === "result" ? getResultProfile(score) : null;
   const pressureScore = useMemo(
     () => toNormalizedScore(pressureRawScore, getPressureMax(questionSet)),
     [pressureRawScore, questionSet],
   );
+  const totalScore = score + pressureScore;
+  const result =
+    phase === "result" ? getResultProfile(Math.round(totalScore / 2)) : null;
   const axisProfile = useMemo(
     () =>
       phase === "result" && result
@@ -712,15 +752,17 @@ export function Quiz() {
         : null,
     [phase, pressureScore, result, score],
   );
+  const nextAction =
+    phase === "result" && result ? getNextAction(score, pressureScore) : null;
 
   useEffect(() => {
-    if (!result || !axisProfile) return;
+    if (!result || !axisProfile || !nextAction) return;
     const pageUrl = getSiteUrl() || window.location.href;
-    const text = buildShareText(score, pressureScore, result, axisProfile);
+    const text = buildShareText(totalScore, result, axisProfile, nextAction);
     setShareText(pageUrl ? `${text}\n${pageUrl}` : text);
     setShareHref(xIntentUrl(text, pageUrl));
     setLineHref(lineShareUrl(text, pageUrl));
-  }, [axisProfile, pressureScore, result, score]);
+  }, [axisProfile, nextAction, result, totalScore]);
 
   function start() {
     setQuestionSet(selectQuestions());
@@ -778,7 +820,7 @@ export function Quiz() {
           <span className="block text-sky-300">汚染度診断</span>
         </h1>
         <p className="mt-3 text-pretty text-sm leading-relaxed text-slate-300 sm:text-base">
-          50問の設問バンクから毎回ランダムに10問出題。結果は「構文化度」と「圧・ハラスメント注意度」の二軸で判定します。
+          50問の設問バンクから毎回ランダムに10問出題。結果は「汚染レベル」と「高圧レベル」の二軸で判定します。
           <span className="text-slate-400"> ※医療診断ではありません。</span>
         </p>
       </header>
@@ -848,7 +890,7 @@ export function Quiz() {
         </section>
       )}
 
-      {phase === "result" && result && axisProfile && (
+      {phase === "result" && result && axisProfile && nextAction && (
         <section className="animate-slide-up flex flex-1 flex-col">
           <div
             className={`rounded-2xl border border-white/10 bg-gradient-to-br ${result.accent} p-[1px]`}
@@ -863,31 +905,17 @@ export function Quiz() {
                 <span className="text-xs text-slate-400">レベル {result.level} / 5</span>
               </div>
 
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-center">
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-center shadow-2xl shadow-sky-950/30">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  two-axis score
+                  total score
                 </p>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-sky-300/20 bg-sky-400/10 p-4">
-                    <p className="text-[11px] font-semibold text-sky-200">
-                      構文化度
-                    </p>
-                    <p className="mt-1 text-3xl font-black text-white">
-                      {score}
-                      <span className="ml-1 text-sm text-slate-400">pt</span>
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-rose-300/20 bg-rose-400/10 p-4">
-                    <p className="text-[11px] font-semibold text-rose-200">
-                      圧注意度
-                    </p>
-                    <p className="mt-1 text-3xl font-black text-white">
-                      {pressureScore}
-                      <span className="ml-1 text-sm text-slate-400">pt</span>
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs text-slate-400">各軸 最大 {MAX_SCORE}pt</p>
+                <p className="mt-2 text-6xl font-black leading-none text-white sm:text-7xl">
+                  {totalScore}
+                  <span className="ml-1 text-xl font-bold text-slate-400">pt</span>
+                </p>
+                <p className="mt-2 text-xs text-slate-400">
+                  最大 {MAX_TOTAL_SCORE}pt（マトリクスは汚染レベル・高圧レベルで算出）
+                </p>
               </div>
 
               <h2 className="mt-4 text-balance text-xl font-bold sm:text-2xl">
@@ -912,20 +940,45 @@ export function Quiz() {
                 <p className="mt-2 text-xs leading-relaxed text-slate-400">
                   {axisProfile.body}
                 </p>
-                <div className="relative mt-4 aspect-square rounded-2xl border border-white/10 bg-slate-950/70 p-3">
-                  <div className="absolute inset-x-3 top-1/2 border-t border-white/10" />
-                  <div className="absolute inset-y-3 left-1/2 border-l border-white/10" />
-                  <div className="absolute left-3 top-3 text-[10px] text-rose-200">
-                    圧高
+                <div className="relative mt-5 aspect-square overflow-hidden rounded-3xl border-2 border-white/20 bg-slate-950 shadow-2xl shadow-rose-950/30">
+                  <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                    <div className="border-r-2 border-b-2 border-white/25 bg-rose-500/15 p-3">
+                      <p className="text-sm font-black text-rose-100">現場圧マネ</p>
+                      <p className="mt-1 text-[11px] text-rose-100/70">
+                        低汚染 × 高圧
+                      </p>
+                    </div>
+                    <div className="border-b-2 border-white/25 bg-amber-400/20 p-3 text-right">
+                      <p className="text-sm font-black text-amber-100">
+                        高圧スライド
+                      </p>
+                      <p className="mt-1 text-[11px] text-amber-100/75">
+                        高汚染 × 高圧
+                      </p>
+                    </div>
+                    <div className="border-r-2 border-white/25 bg-emerald-400/12 p-3 self-end">
+                      <p className="text-sm font-black text-emerald-100">自然体</p>
+                      <p className="mt-1 text-[11px] text-emerald-100/70">
+                        低汚染 × 低圧
+                      </p>
+                    </div>
+                    <div className="bg-sky-400/15 p-3 text-right self-end">
+                      <p className="text-sm font-black text-sky-100">構造化職人</p>
+                      <p className="mt-1 text-[11px] text-sky-100/70">
+                        高汚染 × 低圧
+                      </p>
+                    </div>
                   </div>
-                  <div className="absolute bottom-3 right-3 text-[10px] text-sky-200">
-                    構文化高
+                  <div className="absolute inset-x-4 top-1/2 border-t-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute inset-y-4 left-1/2 border-l-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute left-4 top-4 rounded-full bg-rose-500 px-3 py-1 text-sm font-black text-white shadow-lg">
+                    高圧レベル 高
                   </div>
-                  <div className="absolute bottom-3 left-3 text-[10px] text-slate-500">
-                    自然体
+                  <div className="absolute bottom-4 right-4 rounded-full bg-sky-500 px-3 py-1 text-sm font-black text-white shadow-lg">
+                    汚染レベル 高
                   </div>
                   <div
-                    className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-sky-300 to-rose-300 shadow-lg shadow-sky-500/30 ring-4 ring-white/15"
+                    className="absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_8px_rgba(14,165,233,0.25),0_0_34px_rgba(251,113,133,0.9)] ring-4 ring-rose-300"
                     style={{
                       left: `${Math.min(94, Math.max(6, (score / MAX_SCORE) * 100))}%`,
                       top: `${Math.min(
@@ -935,14 +988,26 @@ export function Quiz() {
                     }}
                   />
                 </div>
-                <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-                  横軸は構造化・コンサル語・資料脳の強さ、縦軸は詰め・責任所在・確認圧が強く出る回答傾向です。
+                <p className="mt-3 text-xs leading-relaxed text-slate-400">
+                  横軸は汚染レベル、縦軸は高圧レベルです。点の位置は回答傾向から算出しています。
+                </p>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-amber-300/25 bg-amber-400/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">
+                  next action
+                </p>
+                <h3 className="mt-2 text-xl font-black text-amber-50">
+                  {nextAction.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-amber-50/80">
+                  {nextAction.body}
                 </p>
               </div>
 
               <div className="mt-6 rounded-xl border border-white/10 bg-black/20 p-4">
                 <p className="text-xs font-semibold text-slate-300">
-                  構文化度のレベル
+                  汚染レベルの目安
                 </p>
                 <div className="mt-3 grid gap-2">
                   {RESULTS.map((r) => (
