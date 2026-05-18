@@ -673,9 +673,9 @@ function getAxisProfile(structureScore: number, pressureScore: number): AxisProf
     },
     "high-mid": {
       key: "slideLead",
-      title: "スライド推進リーダー",
+      title: "人望PM",
       label: "高構造 × 中圧",
-      body: "資料と論点で物事を前に進めるタイプ。圧は管理範囲内ですが、少し会議体が増えがちです。",
+      body: "資料と論点で物事を前に進めつつ、周囲への当たりも比較的マイルド。ちゃんと人がついてくるPMタイプです。",
     },
     "low-high": {
       key: "pressureManager",
@@ -691,9 +691,9 @@ function getAxisProfile(structureScore: number, pressureScore: number): AxisProf
     },
     "high-high": {
       key: "commander",
-      title: "高圧スライド司令塔",
+      title: "ワークホリック",
       label: "高構造 × 高圧",
-      body: "構造化・論点整理・責任所在の確認が全部強め。仕事は進みますが、相手から見ると“詰め会”になりがちです。",
+      body: "構造化・論点整理・責任所在の確認が全部強め。成果は出ますが、本人も周囲も稼働が溶けがちな危険地帯です。",
     },
   };
 
@@ -774,13 +774,13 @@ const AXIS_CELLS: Array<{
 }> = [
   { structure: "low", pressure: "high", title: "現場圧マネ", tone: "bg-rose-500/18 text-rose-50" },
   { structure: "mid", pressure: "high", title: "詰め寄りPM", tone: "bg-orange-400/20 text-orange-50" },
-  { structure: "high", pressure: "high", title: "高圧スライド司令塔", tone: "bg-amber-400/22 text-amber-50" },
+  { structure: "high", pressure: "high", title: "ワークホリック", tone: "bg-orange-500/45 text-orange-50" },
   { structure: "low", pressure: "mid", title: "現場ファシリ", tone: "bg-purple-400/15 text-purple-50" },
   { structure: "mid", pressure: "mid", title: "会議室の調整役", tone: "bg-indigo-400/16 text-indigo-50" },
-  { structure: "high", pressure: "mid", title: "スライド推進リーダー", tone: "bg-sky-400/18 text-sky-50" },
+  { structure: "high", pressure: "mid", title: "人望PM", tone: "bg-sky-500/22 text-sky-50" },
   { structure: "low", pressure: "low", title: "自然体", tone: "bg-emerald-400/14 text-emerald-50" },
   { structure: "mid", pressure: "low", title: "若手参謀", tone: "bg-teal-400/14 text-teal-50" },
-  { structure: "high", pressure: "low", title: "構造化職人", tone: "bg-cyan-400/16 text-cyan-50" },
+  { structure: "high", pressure: "low", title: "構造化職人", tone: "bg-cyan-400/8 text-cyan-50" },
 ];
 
 function ConsultantIllustration({ profile }: { profile: AxisProfile }) {
@@ -1050,7 +1050,7 @@ export function Quiz() {
                     {axisProfile.label}
                   </span>
                 </div>
-                <div className="relative mt-5 aspect-square overflow-hidden rounded-3xl border-2 border-white/20 bg-slate-950 shadow-2xl shadow-rose-950/30">
+                <div className="relative mt-5 aspect-square overflow-hidden rounded-3xl border-2 border-white/20 bg-gradient-to-t from-sky-400/10 via-indigo-500/15 to-orange-500/30 shadow-2xl shadow-rose-950/30">
                   <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
                     {AXIS_CELLS.map((cell) => {
                       const active =
@@ -1071,10 +1071,10 @@ export function Quiz() {
                       );
                     })}
                   </div>
-                  <div className="absolute inset-x-4 top-1/3 border-t-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
-                  <div className="absolute inset-x-4 top-2/3 border-t-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
-                  <div className="absolute inset-y-4 left-1/3 border-l-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
-                  <div className="absolute inset-y-4 left-2/3 border-l-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute inset-x-0 top-1/3 border-t-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute inset-x-0 top-2/3 border-t-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute inset-y-0 left-1/3 border-l-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute inset-y-0 left-2/3 border-l-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
                   <div
                     className="absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_8px_rgba(14,165,233,0.25),0_0_34px_rgba(251,113,133,0.9)] ring-4 ring-rose-300"
                     style={{
