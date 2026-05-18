@@ -19,6 +19,7 @@
 /build
 
 # misc
+gh-auth-prompt.txt
 .DS_Store
 *.pem
 npm-debug.log*
@@ -30,3 +31,5 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+.vercel

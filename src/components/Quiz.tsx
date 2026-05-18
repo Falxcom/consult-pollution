@@ -356,14 +356,17 @@ export function Quiz() {
           <AdSlot slotKey="result" className="mt-6" />
 
           <p className="mt-4 text-center text-xs text-slate-500">
-            共有文に公開URLが付きます（本番では NEXT_PUBLIC_SITE_URL を設定してください）。
+            共有文にこのサイトのURLが付きます。
           </p>
         </section>
       )}
 
       <footer className="mt-auto pt-10 text-center text-[11px] text-slate-600">
         <p>この診断はフィクションです。職種・会社を特定する意図はありません。</p>
-        <p className="mt-2">
+        <p className="mt-2 flex justify-center gap-3">
+          <Link href="/about" className="text-slate-500 underline hover:text-slate-400">
+            このサイトについて
+          </Link>
           <Link href="/privacy" className="text-slate-500 underline hover:text-slate-400">
             プライバシーポリシー
           </Link>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
-import { AdSenseScript } from "@/components/ads/AdSenseScript";
+import { getAdClient } from "@/lib/ads";
 import "./globals.css";
 
 const noto = Noto_Sans_JP({
@@ -13,6 +13,7 @@ const noto = Noto_Sans_JP({
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
   "http://localhost:3000";
+const adClient = getAdClient();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -39,8 +40,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        {adClient ? (
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adClient}`}
+            crossOrigin="anonymous"
+          />
+        ) : null}
+      </head>
       <body className={`${noto.variable} font-sans`}>
-        <AdSenseScript />
         {children}
       </body>
     </html>
