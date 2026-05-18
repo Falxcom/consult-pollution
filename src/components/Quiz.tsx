@@ -971,12 +971,6 @@ export function Quiz() {
                   </div>
                   <div className="absolute inset-x-4 top-1/2 border-t-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
                   <div className="absolute inset-y-4 left-1/2 border-l-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
-                  <div className="absolute left-4 top-4 rounded-full bg-rose-500 px-3 py-1 text-sm font-black text-white shadow-lg">
-                    高圧レベル 高
-                  </div>
-                  <div className="absolute bottom-4 right-4 rounded-full bg-sky-500 px-3 py-1 text-sm font-black text-white shadow-lg">
-                    汚染レベル 高
-                  </div>
                   <div
                     className="absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_8px_rgba(14,165,233,0.25),0_0_34px_rgba(251,113,133,0.9)] ring-4 ring-rose-300"
                     style={{
