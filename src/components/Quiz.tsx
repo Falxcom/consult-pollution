@@ -588,6 +588,16 @@ function getResultProfile(total: number): ResultProfile {
 }
 
 type AxisProfile = {
+  key:
+    | "natural"
+    | "organizer"
+    | "craftsperson"
+    | "facilitator"
+    | "coordinator"
+    | "slideLead"
+    | "pressureManager"
+    | "hardPm"
+    | "commander";
   title: string;
   label: string;
   body: string;
@@ -617,60 +627,98 @@ function toNormalizedScore(raw: number, max: number): number {
   return Math.round((raw / max) * MAX_SCORE);
 }
 
-function getAxisProfile(pollutionScore: number, pressureScore: number): AxisProfile {
-  const highPollution = pollutionScore >= 150;
-  const highPressure = pressureScore >= 150;
+type AxisBand = "low" | "mid" | "high";
 
-  if (!highPollution && !highPressure) {
-    return {
-      title: "自然体コミュニケーター",
-      label: "低汚染 × 低高圧",
-      body: "構造化も圧も控えめ。会話は人間味があり、相手に逃げ道を残せるタイプです。資料より雑談で強い可能性があります。",
-    };
-  }
-
-  if (highPollution && !highPressure) {
-    return {
-      title: "やさしい構造化職人",
-      label: "高汚染 × 低高圧",
-      body: "論点整理や図解は得意ですが、相手を詰める感じは弱め。コンサル語は出るけれど、比較的やさしい運用です。",
-    };
-  }
-
-  if (!highPollution && highPressure) {
-    return {
-      title: "現場圧マネージャー",
-      label: "低汚染 × 高高圧",
-      body: "フレームワーク臭はそこまで強くない一方で、確認・詰め・責任所在への感度が高め。正論の速度を少し落とすと安全です。",
-    };
-  }
-
-  return {
-    title: "高圧スライド司令塔",
-    label: "高汚染 × 高高圧",
-    body: "構造化・論点整理・責任所在の確認が全部強め。仕事は進みますが、相手から見ると『詰め会』に見えることがあります。",
-  };
+function getBand(score: number): AxisBand {
+  if (score < 100) return "low";
+  if (score < 200) return "mid";
+  return "high";
 }
 
-function getNextAction(pollutionScore: number, pressureScore: number): NextAction {
-  const highPollution = pollutionScore >= 150;
+function getAxisProfile(structureScore: number, pressureScore: number): AxisProfile {
+  const structure = getBand(structureScore);
+  const pressure = getBand(pressureScore);
+  const key = `${structure}-${pressure}`;
+
+  const profiles: Record<string, AxisProfile> = {
+    "low-low": {
+      key: "natural",
+      title: "自然体コミュニケーター",
+      label: "低構造 × 低圧",
+      body: "会話に人間味があり、相手に逃げ道を残せるタイプ。資料より雑談で価値を出す平和枠です。",
+    },
+    "mid-low": {
+      key: "organizer",
+      title: "整理上手の若手参謀",
+      label: "中構造 × 低圧",
+      body: "必要な時だけ論点を整理できる、ほどよいバランス型。場を壊さずに話を前に進めます。",
+    },
+    "high-low": {
+      key: "craftsperson",
+      title: "やさしい構造化職人",
+      label: "高構造 × 低圧",
+      body: "図解・論点整理・スライド化が得意。ただし詰めは弱めで、相手に優しい運用ができます。",
+    },
+    "low-mid": {
+      key: "facilitator",
+      title: "現場ファシリテーター",
+      label: "低構造 × 中圧",
+      body: "構文は少なめでも、会議の前進力はそこそこ強いタイプ。場を回す力が出ています。",
+    },
+    "mid-mid": {
+      key: "coordinator",
+      title: "会議室の調整役",
+      label: "中構造 × 中圧",
+      body: "整理も確認もほどほどに強い中央型。便利な人ですが、時々“仕事っぽさ”が漏れます。",
+    },
+    "high-mid": {
+      key: "slideLead",
+      title: "スライド推進リーダー",
+      label: "高構造 × 中圧",
+      body: "資料と論点で物事を前に進めるタイプ。圧は管理範囲内ですが、少し会議体が増えがちです。",
+    },
+    "low-high": {
+      key: "pressureManager",
+      title: "現場圧マネージャー",
+      label: "低構造 × 高圧",
+      body: "構文より圧が先に出るタイプ。正論の速度が速いので、相手の逃げ道を先に置くと安全です。",
+    },
+    "mid-high": {
+      key: "hardPm",
+      title: "詰め寄りPM",
+      label: "中構造 × 高圧",
+      body: "目的・期限・責任所在をかなり見に行く推進型。成果は出ますが、1on1の温度管理が重要です。",
+    },
+    "high-high": {
+      key: "commander",
+      title: "高圧スライド司令塔",
+      label: "高構造 × 高圧",
+      body: "構造化・論点整理・責任所在の確認が全部強め。仕事は進みますが、相手から見ると“詰め会”になりがちです。",
+    },
+  };
+
+  return profiles[key];
+}
+
+function getNextAction(structureScore: number, pressureScore: number): NextAction {
+  const highStructure = structureScore >= 150;
   const highPressure = pressureScore >= 150;
 
-  if (!highPollution && !highPressure) {
+  if (!highStructure && !highPressure) {
     return {
       title: "自分探しの旅",
       body: "まだ染まりきっていません。Excelを閉じて、少しだけ予定のない週末を取り戻しましょう。",
     };
   }
 
-  if (highPollution && !highPressure) {
+  if (highStructure && !highPressure) {
     return {
       title: "事業会社に転職",
       body: "構造化力は武器。ただし詰めは弱めなので、事業会社の企画・BizOps・PdM周辺で穏やかに活きる可能性があります。",
     };
   }
 
-  if (!highPollution && highPressure) {
+  if (!highStructure && highPressure) {
     return {
       title: "ハラスメント退職",
       body: "構文より圧が先に出るタイプ。次の1on1では正論を半分にして、相手の逃げ道を先に置きましょう。",
@@ -685,11 +733,10 @@ function getNextAction(pollutionScore: number, pressureScore: number): NextActio
 
 function buildShareText(
   totalScore: number,
-  profile: ResultProfile,
   axisProfile: AxisProfile,
   nextAction: NextAction,
 ): string {
-  return `量産型コンサル汚染度診断：${profile.title}
+  return `量産型コンサル汚染度診断：${axisProfile.title}
 総合スコア ${totalScore}/${MAX_TOTAL_SCORE}pt
 二軸タイプ：${axisProfile.title}（${axisProfile.label}）
 ネクストアクション：${nextAction.title}`;
@@ -717,6 +764,66 @@ function selectQuestions(): Question[] {
     ...shuffle(pressureQuestions).slice(0, 4),
     ...shuffle(otherQuestions).slice(0, QUESTIONS_PER_RUN - 4),
   ].sort(() => Math.random() - 0.5);
+}
+
+const AXIS_CELLS: Array<{
+  structure: AxisBand;
+  pressure: AxisBand;
+  title: string;
+  tone: string;
+}> = [
+  { structure: "low", pressure: "high", title: "現場圧マネ", tone: "bg-rose-500/18 text-rose-50" },
+  { structure: "mid", pressure: "high", title: "詰め寄りPM", tone: "bg-orange-400/20 text-orange-50" },
+  { structure: "high", pressure: "high", title: "高圧スライド司令塔", tone: "bg-amber-400/22 text-amber-50" },
+  { structure: "low", pressure: "mid", title: "現場ファシリ", tone: "bg-purple-400/15 text-purple-50" },
+  { structure: "mid", pressure: "mid", title: "会議室の調整役", tone: "bg-indigo-400/16 text-indigo-50" },
+  { structure: "high", pressure: "mid", title: "スライド推進リーダー", tone: "bg-sky-400/18 text-sky-50" },
+  { structure: "low", pressure: "low", title: "自然体", tone: "bg-emerald-400/14 text-emerald-50" },
+  { structure: "mid", pressure: "low", title: "若手参謀", tone: "bg-teal-400/14 text-teal-50" },
+  { structure: "high", pressure: "low", title: "構造化職人", tone: "bg-cyan-400/16 text-cyan-50" },
+];
+
+function ConsultantIllustration({ profile }: { profile: AxisProfile }) {
+  const palette: Record<AxisProfile["key"], { suit: string; accent: string; item: string }> = {
+    natural: { suit: "#334155", accent: "#34d399", item: "☕" },
+    organizer: { suit: "#0f766e", accent: "#5eead4", item: "☑" },
+    craftsperson: { suit: "#0369a1", accent: "#7dd3fc", item: "▦" },
+    facilitator: { suit: "#6d28d9", accent: "#c4b5fd", item: "↔" },
+    coordinator: { suit: "#4338ca", accent: "#a5b4fc", item: "◎" },
+    slideLead: { suit: "#0284c7", accent: "#38bdf8", item: "▶" },
+    pressureManager: { suit: "#be123c", accent: "#fda4af", item: "!" },
+    hardPm: { suit: "#c2410c", accent: "#fdba74", item: "!" },
+    commander: { suit: "#b45309", accent: "#fde68a", item: "★" },
+  };
+  const color = palette[profile.key];
+
+  return (
+    <svg viewBox="0 0 220 180" role="img" aria-label={`${profile.title}のイラスト`} className="mx-auto h-44 w-full max-w-[260px]">
+      <defs>
+        <linearGradient id={`glow-${profile.key}`} x1="0" x2="1" y1="0" y2="1">
+          <stop stopColor={color.accent} stopOpacity="0.9" />
+          <stop offset="1" stopColor={color.suit} stopOpacity="0.65" />
+        </linearGradient>
+      </defs>
+      <rect x="22" y="18" width="176" height="138" rx="28" fill={`url(#glow-${profile.key})`} opacity="0.18" />
+      <rect x="48" y="92" width="124" height="58" rx="18" fill={color.suit} />
+      <path d="M76 94l34 38 34-38" fill="#f8fafc" opacity="0.92" />
+      <path d="M98 104h24l-6 26h-12z" fill={color.accent} />
+      <circle cx="110" cy="67" r="35" fill="#f8d3b6" />
+      <path d="M76 62c8-31 59-35 70-2-20-9-45-8-70 2z" fill="#1e293b" />
+      <circle cx="97" cy="70" r="3" fill="#0f172a" />
+      <circle cx="123" cy="70" r="3" fill="#0f172a" />
+      <path d="M98 84c8 6 18 6 25 0" fill="none" stroke="#7c2d12" strokeLinecap="round" strokeWidth="3" />
+      <rect x="139" y="36" width="44" height="58" rx="8" fill="#f8fafc" opacity="0.95" />
+      <path d="M148 50h26M148 62h20M148 74h25" stroke={color.suit} strokeLinecap="round" strokeWidth="4" />
+      <circle cx="58" cy="42" r="20" fill={color.accent} opacity="0.95" />
+      <text x="58" y="50" textAnchor="middle" fontSize="24" fontWeight="900" fill="#0f172a">
+        {color.item}
+      </text>
+      <path d="M52 122h116" stroke="#e2e8f0" strokeLinecap="round" strokeWidth="8" opacity="0.55" />
+      <path d="M68 137h84" stroke="#e2e8f0" strokeLinecap="round" strokeWidth="8" opacity="0.35" />
+    </svg>
+  );
 }
 
 type Phase = "intro" | "quiz" | "result";
@@ -758,7 +865,7 @@ export function Quiz() {
   useEffect(() => {
     if (!result || !axisProfile || !nextAction) return;
     const pageUrl = getSiteUrl() || window.location.href;
-    const text = buildShareText(totalScore, result, axisProfile, nextAction);
+    const text = buildShareText(totalScore, axisProfile, nextAction);
     setShareText(pageUrl ? `${text}\n${pageUrl}` : text);
     setShareHref(xIntentUrl(text, pageUrl));
     setLineHref(lineShareUrl(text, pageUrl));
@@ -820,7 +927,7 @@ export function Quiz() {
           <span className="block text-sky-300">汚染度診断</span>
         </h1>
         <p className="mt-3 text-pretty text-sm leading-relaxed text-slate-300 sm:text-base">
-          50問の設問バンクから毎回ランダムに10問出題。結果は「汚染レベル」と「高圧レベル」の二軸で判定します。
+          50問の設問バンクから毎回ランダムに10問出題。結果は回答傾向の二軸マップから9タイプに分類します。
           <span className="text-slate-400"> ※医療診断ではありません。</span>
         </p>
       </header>
@@ -902,7 +1009,7 @@ export function Quiz() {
                 >
                   診断結果
                 </span>
-                <span className="text-xs text-slate-400">レベル {result.level} / 5</span>
+                <span className="text-xs text-slate-400">9タイプ診断</span>
               </div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-center shadow-2xl shadow-sky-950/30">
@@ -914,63 +1021,60 @@ export function Quiz() {
                   <span className="ml-1 text-xl font-bold text-slate-400">pt</span>
                 </p>
                 <p className="mt-2 text-xs text-slate-400">
-                  最大 {MAX_TOTAL_SCORE}pt（マトリクスは汚染レベル・高圧レベルで算出）
+                  最大 {MAX_TOTAL_SCORE}pt（二軸マップの位置からタイプを判定）
                 </p>
               </div>
 
-              <h2 className="mt-4 text-balance text-xl font-bold sm:text-2xl">
-                {result.title}
-              </h2>
-              <p className="mt-2 text-sm font-medium text-slate-200 sm:text-base">
-                {result.tagline}
-              </p>
-              <p className="mt-4 text-pretty text-sm leading-relaxed text-slate-300">
-                {result.body}
-              </p>
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center">
+                <ConsultantIllustration profile={axisProfile} />
+                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  two-axis type
+                </p>
+                <h2 className="mt-2 text-balance text-2xl font-black sm:text-3xl">
+                  {axisProfile.title}
+                </h2>
+                <p className="mt-2 text-sm font-medium text-slate-200">
+                  {axisProfile.label}
+                </p>
+                <p className="mt-3 text-pretty text-sm leading-relaxed text-slate-300">
+                  {axisProfile.body}
+                </p>
+              </div>
 
               <div className="mt-6 rounded-xl border border-white/10 bg-black/20 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-slate-300">
-                    二軸タイプ：{axisProfile.title}
+                    二軸マトリクス
                   </p>
                   <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-slate-300">
                     {axisProfile.label}
                   </span>
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-slate-400">
-                  {axisProfile.body}
-                </p>
                 <div className="relative mt-5 aspect-square overflow-hidden rounded-3xl border-2 border-white/20 bg-slate-950 shadow-2xl shadow-rose-950/30">
-                  <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
-                    <div className="border-r-2 border-b-2 border-white/25 bg-rose-500/15 p-3">
-                      <p className="text-sm font-black text-rose-100">現場圧マネ</p>
-                      <p className="mt-1 text-[11px] text-rose-100/70">
-                        低汚染 × 高圧
-                      </p>
-                    </div>
-                    <div className="border-b-2 border-white/25 bg-amber-400/20 p-3 text-right">
-                      <p className="text-sm font-black text-amber-100">
-                        高圧スライド
-                      </p>
-                      <p className="mt-1 text-[11px] text-amber-100/75">
-                        高汚染 × 高圧
-                      </p>
-                    </div>
-                    <div className="border-r-2 border-white/25 bg-emerald-400/12 p-3 self-end">
-                      <p className="text-sm font-black text-emerald-100">自然体</p>
-                      <p className="mt-1 text-[11px] text-emerald-100/70">
-                        低汚染 × 低圧
-                      </p>
-                    </div>
-                    <div className="bg-sky-400/15 p-3 text-right self-end">
-                      <p className="text-sm font-black text-sky-100">構造化職人</p>
-                      <p className="mt-1 text-[11px] text-sky-100/70">
-                        高汚染 × 低圧
-                      </p>
-                    </div>
+                  <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+                    {AXIS_CELLS.map((cell) => {
+                      const active =
+                        cell.structure === getBand(score) &&
+                        cell.pressure === getBand(pressureScore);
+
+                      return (
+                        <div
+                          key={`${cell.structure}-${cell.pressure}`}
+                          className={`flex items-center justify-center border border-white/20 p-1 text-center ${cell.tone} ${
+                            active ? "outline outline-4 outline-white/70" : ""
+                          }`}
+                        >
+                          <span className="text-[11px] font-black leading-tight sm:text-xs">
+                            {cell.title}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="absolute inset-x-4 top-1/2 border-t-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
-                  <div className="absolute inset-y-4 left-1/2 border-l-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute inset-x-4 top-1/3 border-t-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute inset-x-4 top-2/3 border-t-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute inset-y-4 left-1/3 border-l-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
+                  <div className="absolute inset-y-4 left-2/3 border-l-4 border-white/45 shadow-[0_0_18px_rgba(255,255,255,0.25)]" />
                   <div
                     className="absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_8px_rgba(14,165,233,0.25),0_0_34px_rgba(251,113,133,0.9)] ring-4 ring-rose-300"
                     style={{
@@ -983,7 +1087,7 @@ export function Quiz() {
                   />
                 </div>
                 <p className="mt-3 text-xs leading-relaxed text-slate-400">
-                  横軸は汚染レベル、縦軸は高圧レベルです。点の位置は回答傾向から算出しています。
+                  横軸は構造化の強さ、縦軸は高圧傾向です。点の位置に応じて9タイプのどれかに分類されます。
                 </p>
               </div>
 
@@ -997,29 +1101,6 @@ export function Quiz() {
                 <p className="mt-2 text-sm leading-relaxed text-amber-50/80">
                   {nextAction.body}
                 </p>
-              </div>
-
-              <div className="mt-6 rounded-xl border border-white/10 bg-black/20 p-4">
-                <p className="text-xs font-semibold text-slate-300">
-                  汚染レベルの目安
-                </p>
-                <div className="mt-3 grid gap-2">
-                  {RESULTS.map((r) => (
-                    <div
-                      key={r.title}
-                      className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${
-                        r.level === result.level
-                          ? "border-sky-300/50 bg-sky-400/10 text-sky-100"
-                          : "border-white/10 bg-white/[0.02] text-slate-400"
-                      }`}
-                    >
-                      <span>
-                        Lv.{r.level} {r.title.replace(/^タイプ\s*/, "")}
-                      </span>
-                      <span>{r.range}pt</span>
-                    </div>
-                  ))}
-                </div>
               </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
