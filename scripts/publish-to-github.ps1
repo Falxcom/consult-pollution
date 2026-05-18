@@ -14,12 +14,7 @@ param(
 $ErrorActionPreference = "Stop"
 $env:Path = "C:\Program Files\Git\cmd;C:\Program Files\GitHub CLI;C:\Program Files\nodejs;" + $env:Path
 
-$root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-if (Test-Path (Join-Path $PSScriptRoot "..\package.json")) {
-  $root = Resolve-Path (Join-Path $PSScriptRoot "..")
-}
-
-Set-Location $root
+Set-Location (Resolve-Path (Join-Path $PSScriptRoot ".."))
 
 if (-not $Token) {
   Write-Host "GH_TOKEN is not set. Create a token at https://github.com/settings/tokens"
